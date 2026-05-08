@@ -1,0 +1,9 @@
+[package]
+name = "verified_x3dh"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+hmac = "0.12"
+sha2 = "0.10"
+hax-lib = { path = "/home/abhoy/DFKI_CPS/easeprofit/protocrypt/hax/hax-lib" }  # adjust path to where you cloned hax
