@@ -287,6 +287,11 @@ configure_cmd() {
     return 1
   fi
 
+  if ! mkdir -p "$(dirname "$extraction_dir")"; then
+    echo "Failed to create extraction directory parent: $(dirname "$extraction_dir")"
+    return 1
+  fi
+
   extraction_dir="$(canonicalize_dir "$(dirname "$extraction_dir")")/$(basename "$extraction_dir")"
   if [[ "$load_venv" == "1" && -d "$venv_path" ]]; then
     venv_path="$(canonicalize_dir "$venv_path")"
