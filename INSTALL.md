@@ -25,6 +25,8 @@ verified_x3dh/
 
 The `hax` toolchain is treated as an external prerequisite. It does not need to live next to `verified_x3dh`, but its installation root must be known.
 
+The Rust manifest itself should stay shareable: `Cargo.toml` should depend on published crates, not a developer-specific local `path` for `hax-lib`. Machine-local `hax` locations belong in `.x3dh_verify.env` or `HAX_ROOT`, not in Cargo dependencies.
+
 ## Required hax-side F* directories
 
 For this crate's manual F* verification flow, the configured `HAX_ROOT` must contain:

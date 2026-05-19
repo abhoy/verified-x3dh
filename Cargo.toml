@@ -2,8 +2,12 @@
 name = "verified_x3dh"
 version = "0.1.0"
 edition = "2024"
+description = "Verification-friendly Rust model of the X3DH handshake core for hax/F* extraction"
+readme = "README.md"
+repository = "https://github.com/abhoy/HyVer"
+license-file = "LICENSE"
 
 [dependencies]
 hmac = "0.12"
 sha2 = "0.10"
-hax-lib = { path = "/home/abhoy/DFKI_CPS/easeprofit/protocrypt/hax/hax-lib" }  # adjust path to where you cloned hax
+hax-lib = { version = "0.3" }

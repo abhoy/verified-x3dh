@@ -36,6 +36,8 @@ cargo test
 
 This is a smoke test for the Rust crate, not a substitute for hax/F* verification.
 
+`Cargo.toml` now uses a normal published `hax-lib` dependency, so the crate no longer embeds a machine-local path to a personal `hax` checkout. The local `HAX_ROOT` configuration remains verification-tooling state handled by the helper scripts, not by the Rust manifest.
+
 You can also run the abstract handshake demo:
 
 ```bash
