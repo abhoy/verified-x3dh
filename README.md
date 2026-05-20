@@ -22,11 +22,15 @@ The intended flow is:
 
 ```bash
 cd verified_x3dh
-./install_x3dh_verification.sh configure --hax-root /absolute/path/to/hax
+./install_x3dh_verification.sh configure \
+  --hax-root /absolute/path/to/hax \
+  --extraction-dir "$PWD/proofs/fstar/extraction"
 ./install_x3dh_verification.sh check
 ./install_x3dh_verification.sh install
 ./install_x3dh_verification.sh run all verify-all
 ```
+
+Unless overridden, the default extraction directory is `verified_x3dh/proofs/fstar/extraction`.
 
 Before extraction/verification, you can also run the executable Rust model tests directly:
 
@@ -59,6 +63,7 @@ Two verification styles are supported:
 1. Direct `fstar.exe` verification
    - used by modes like `verify-all`, `verify-kdf`, `verify-properties`
    - requires explicit F* include paths from `HAX_ROOT`
+   - also includes the configured `EXTRACTION_DIR`, which defaults to `proofs/fstar/extraction/`
 2. Makefile-based hax quick-start verification
    - `verify-make-lax`
    - `verify-make`
@@ -72,6 +77,8 @@ The direct `fstar.exe` path still needs these hax-side F* include roots:
 - `$HAX_ROOT/hax-lib/proofs/fstar/extraction`
 
 By contrast, the Makefile-based flow delegates that setup to the Makefile itself.
+
+If you use `run verify-only ...`, the script verifies the already-generated `.fst` files from the configured `EXTRACTION_DIR`. If that directory is stale or custom, verify-only and direct manual `fstar.exe` runs must point to the same location.
 
 ## Structure
 

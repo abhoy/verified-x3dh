@@ -67,7 +67,9 @@ From the repository root:
 ```bash
 cd verified_x3dh
 chmod +x verify_x3dh install_x3dh_verification.sh
-./install_x3dh_verification.sh configure --hax-root /absolute/path/to/hax
+./install_x3dh_verification.sh configure \
+  --hax-root /absolute/path/to/hax \
+  --extraction-dir "$PWD/proofs/fstar/extraction"
 ```
 
 If needed, set a specific opam switch or F* binary:
@@ -75,11 +77,15 @@ If needed, set a specific opam switch or F* binary:
 ```bash
 ./install_x3dh_verification.sh configure \
   --hax-root /path/to/hax \
+  --extraction-dir "$PWD/proofs/fstar/extraction" \
   --opam-switch 5.1.1 \
   --fstar-bin fstar.exe
 ```
 
 This writes `.x3dh_verify.env` in `verified_x3dh/`.
+
+Unless overridden, `EXTRACTION_DIR` defaults to `verified_x3dh/proofs/fstar/extraction`.
+This path is used both for generated `.fst` output and for later verification runs.
 
 If `HAX_ROOT` is already exported in your shell, you can reuse it:
 
@@ -154,6 +160,8 @@ Verify already-generated F* files only:
 ```bash
 ./install_x3dh_verification.sh run verify-only verify-properties
 ```
+
+`verify-only` does not rerun `cargo hax into fstar`. It reads the existing extracted files from the configured `EXTRACTION_DIR` in `.x3dh_verify.env`. If you changed `--extraction-dir` during `configure`, or if the extracted files are stale, this command will use that exact configured path.
 
 Run only part of the extraction:
 
