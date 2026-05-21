@@ -39,7 +39,7 @@ use crate::handshake_core::{
     alice_initiate_core, bob_receive_core, AliceInitiateCoreInputs, BobReceiveCoreInputs,
 };
 use crate::kdf::x3dh_kdf;
-use crate::transcript::{assemble_km_from_alice_inputs, assemble_km_from_bob_inputs,KM_LEN_WITHOUT_OPK, KM_LEN_WITH_OPK};
+use crate::transcript::{assemble_km_from_alice_inputs, assemble_km_from_bob_inputs};
 use crate::types::{
     AliceDhInputs, AliceInitialMessage, BobDhInputs, BobLocalState, BobPublicContext,
     HandshakeError, X25519PublicKey,
@@ -209,7 +209,10 @@ pub fn prop_matching_dh_inputs_produce_same_km(
 /// The X3DH KDF is deterministic:
 /// same KM + same info => same SK.
 #[hax_lib::include]
-#[hax_lib::requires(km.len() == KM_LEN_WITHOUT_OPK || km.len() == KM_LEN_WITH_OPK)]
+#[hax_lib::requires(
+    km.len() == crate::transcript::KM_LEN_WITHOUT_OPK
+        || km.len() == crate::transcript::KM_LEN_WITH_OPK
+)]
 #[hax_lib::ensures(|result| result)]
 pub fn prop_same_km_implies_same_sk(km: &[u8], info: &[u8]) -> bool {
     match (x3dh_kdf(km, info), x3dh_kdf(km, info)) {
@@ -223,8 +226,10 @@ pub fn prop_same_km_implies_same_sk(km: &[u8], info: &[u8]) -> bool {
 /// under the same info string.
 #[hax_lib::include]
 #[hax_lib::requires(
-    (km1.len() == KM_LEN_WITHOUT_OPK || km1.len() == KM_LEN_WITH_OPK)
-        && (km2.len() == KM_LEN_WITHOUT_OPK || km2.len() == KM_LEN_WITH_OPK)
+    (km1.len() == crate::transcript::KM_LEN_WITHOUT_OPK
+        || km1.len() == crate::transcript::KM_LEN_WITH_OPK)
+        && (km2.len() == crate::transcript::KM_LEN_WITHOUT_OPK
+            || km2.len() == crate::transcript::KM_LEN_WITH_OPK)
 )]
 #[hax_lib::ensures(|result| result == (km1 != km2 || {
     match (x3dh_kdf(km1, info), x3dh_kdf(km2, info)) {

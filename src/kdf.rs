@@ -26,8 +26,7 @@
 //! - invalid lengths are rejected
 //! - X3DH KDF returns a 32-byte shared secret
 
-use crate::types::{SharedSecret, SHARED_SECRET_LEN};
-use crate::transcript::{KM_LEN_WITHOUT_OPK, KM_LEN_WITH_OPK};
+use crate::types::SharedSecret;
 
 /// SHA-256 output size in bytes.
 pub const HASH_LEN: usize = 32;
@@ -82,7 +81,10 @@ pub fn is_hash_len(len: usize) -> bool {
 
 /// Build X3DH input key material:
 ///   ikm = F_25519 || km
-#[hax_lib::requires(km.len() == KM_LEN_WITHOUT_OPK || km.len() == KM_LEN_WITH_OPK)]
+#[hax_lib::requires(
+    km.len() == crate::transcript::KM_LEN_WITHOUT_OPK
+        || km.len() == crate::transcript::KM_LEN_WITH_OPK
+)]
 #[hax_lib::ensures(|result| result.len() == HASH_LEN + km.len())]
 pub fn build_x3dh_ikm(km: &[u8]) -> Vec<u8> {
     let mut ikm = Vec::with_capacity(HASH_LEN + km.len());
@@ -159,10 +161,13 @@ pub fn hkdf_expand(
 /// Guarantees:
 /// - If successful, returns a 32-byte shared secret.
 #[hax_lib::include]
-#[hax_lib::requires(km.len() == KM_LEN_WITHOUT_OPK || km.len() == KM_LEN_WITH_OPK)]
+#[hax_lib::requires(
+    km.len() == crate::transcript::KM_LEN_WITHOUT_OPK
+        || km.len() == crate::transcript::KM_LEN_WITH_OPK
+)]
 #[hax_lib::ensures(|result|
     match result {
-        Ok(sk) => sk.0.len() == SHARED_SECRET_LEN,
+        Ok(sk) => sk.0.len() == crate::types::SHARED_SECRET_LEN,
         Err(_) => false,
     }
 )]
@@ -178,10 +183,13 @@ pub fn x3dh_kdf(km: &[u8], info: &[u8]) -> Result<SharedSecret, KdfError> {
 }
 
 /// X3DH shared-secret derivation using the default context string.
-#[hax_lib::requires(km.len() == KM_LEN_WITHOUT_OPK || km.len() == KM_LEN_WITH_OPK)]
+#[hax_lib::requires(
+    km.len() == crate::transcript::KM_LEN_WITHOUT_OPK
+        || km.len() == crate::transcript::KM_LEN_WITH_OPK
+)]
 #[hax_lib::ensures(|result|
     match result {
-        Ok(sk) => sk.0.len() == SHARED_SECRET_LEN,
+        Ok(sk) => sk.0.len() == crate::types::SHARED_SECRET_LEN,
         Err(_) => false,
     }
 )]

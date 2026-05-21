@@ -263,6 +263,57 @@ pub fn prop_bob_receive_rejects_non_ready(
 }
 
 /// Property:
+/// A successful Bob receive preserves Bob's identity key and signed prekey.
+///
+/// In this model, only the optional OPK may be consumed by `bob_receive`.
+#[hax_lib::include]
+#[hax_lib::ensures(|result|
+    match (&state, &result) {
+        (
+            BobProtocolState::Ready { local_state: before },
+            Ok(BobProtocolState::ReceivedInitial { local_state: after, .. }),
+        ) =>
+            after.identity_key == before.identity_key
+                && after.signing_key == before.signing_key
+                && after.signed_prekey == before.signed_prekey,
+        (_, Ok(_)) => false,
+        (_, Err(_)) => true,
+    }
+)]
+pub fn prop_bob_receive_preserves_identity_and_signed_prekey(
+    state: BobProtocolState,
+    inputs: &BobReceiveCoreInputs,
+) -> Result<BobProtocolState, HandshakeError> {
+    bob_receive(state, inputs)
+}
+
+/// Property:
+/// If Alice's message does not reference an OPK, a successful Bob receive
+/// leaves Bob's OPK state unchanged.
+#[hax_lib::include]
+#[hax_lib::ensures(|result|
+    match (&state, &result) {
+        (
+            BobProtocolState::Ready { local_state: before },
+            Ok(BobProtocolState::ReceivedInitial { local_state: after, message, .. }),
+        ) =>
+            if message.one_time_prekey_id.is_none() {
+                after.one_time_prekey == before.one_time_prekey
+            } else {
+                true
+            },
+        (_, Ok(_)) => false,
+        (_, Err(_)) => true,
+    }
+)]
+pub fn prop_bob_receive_does_not_consume_opk_when_unreferenced(
+    state: BobProtocolState,
+    inputs: &BobReceiveCoreInputs,
+) -> Result<BobProtocolState, HandshakeError> {
+    bob_receive(state, inputs)
+}
+
+/// Property:
 /// `bob_establish` rejects states other than `ReceivedInitial`.
 ///
 /// This rules out “established-before-message” behavior on Bob's side.
@@ -303,6 +354,76 @@ pub fn bob_establish(
             result,
         }),
         _ => Err(HandshakeError::MalformedMessage),
+    }
+}
+
+/// Property:
+/// If Bob successfully receives a message that references an OPK, that OPK can
+/// be consumed at most once in the state machine.
+///
+/// The proof structure is simple:
+/// - first receive may consume the OPK
+/// - the resulting state is `ReceivedInitial`
+/// - any second `bob_receive` from that state is rejected
+#[hax_lib::include]
+#[hax_lib::ensures(|result|
+    match result {
+        Ok(value) => value,
+        Err(_) => true,
+    }
+)]
+pub fn prop_bob_receive_consumes_opk_at_most_once(
+    inputs: &BobReceiveCoreInputs,
+) -> Result<bool, HandshakeError> {
+    let first = bob_receive(
+        BobProtocolState::Ready {
+            local_state: inputs.bob_state.clone(),
+        },
+        inputs,
+    )?;
+
+    match &first {
+        BobProtocolState::ReceivedInitial { message, .. } if message.one_time_prekey_id.is_some() => {
+            Ok(matches!(
+                bob_receive(first, inputs),
+                Err(HandshakeError::MalformedMessage)
+            ))
+        }
+        _ => Ok(true),
+    }
+}
+
+/// Property:
+/// Bob's establish step does not restore an OPK that was already consumed.
+#[hax_lib::include]
+#[hax_lib::ensures(|result|
+    match result {
+        Ok(value) => value,
+        Err(_) => true,
+    }
+)]
+pub fn prop_bob_establish_does_not_restore_opk(
+    inputs: &BobReceiveCoreInputs,
+) -> Result<bool, HandshakeError> {
+    let received = bob_receive(
+        BobProtocolState::Ready {
+            local_state: inputs.bob_state.clone(),
+        },
+        inputs,
+    )?;
+
+    let received_opk = match &received {
+        BobProtocolState::ReceivedInitial { local_state, .. } => local_state.one_time_prekey.clone(),
+        _ => return Ok(false),
+    };
+
+    let established = bob_establish(received)?;
+
+    match established {
+        BobProtocolState::Established { local_state, .. } => {
+            Ok(local_state.one_time_prekey == received_opk)
+        }
+        _ => Ok(false),
     }
 }
 
@@ -497,5 +618,171 @@ mod tests {
         let established = bob_establish(received).unwrap();
 
         assert!(matches!(established, BobProtocolState::Established { .. }));
+    }
+
+    #[test]
+    fn bob_receive_preserves_identity_and_signed_prekey() {
+        let alice_inputs = AliceInitiateCoreInputs {
+            alice_public: sample_alice_public(),
+            bob_public: sample_bob_public_with_opk(),
+            dh_inputs: AliceDhInputs {
+                dh1: dh(0x10),
+                dh2: dh(0x20),
+                dh3: dh(0x30),
+                dh4: Some(dh(0x40)),
+            },
+            signed_prekey_is_valid: true,
+            nonce: Nonce([2u8; 12]),
+            ciphertext: Ciphertext(vec![9]),
+            info: None,
+        };
+
+        let alice_result = alice_initiate_core(&alice_inputs).unwrap();
+        let ready_local = sample_bob_state_with_opk();
+        let ready_state = BobProtocolState::Ready {
+            local_state: ready_local.clone(),
+        };
+        let bob_inputs = BobReceiveCoreInputs {
+            bob_state: ready_local.clone(),
+            alice_message: alice_result.initial_message,
+            dh_inputs: BobDhInputs {
+                dh1: dh(0x10),
+                dh2: dh(0x20),
+                dh3: dh(0x30),
+                dh4: Some(dh(0x40)),
+            },
+            plaintext: Plaintext(b"ok".to_vec()),
+            info: None,
+        };
+
+        let next =
+            prop_bob_receive_preserves_identity_and_signed_prekey(ready_state, &bob_inputs)
+                .unwrap();
+
+        match next {
+            BobProtocolState::ReceivedInitial { local_state, .. } => {
+                assert_eq!(local_state.identity_key, ready_local.identity_key);
+                assert_eq!(local_state.signing_key, ready_local.signing_key);
+                assert_eq!(local_state.signed_prekey, ready_local.signed_prekey);
+            }
+            _ => panic!("expected ReceivedInitial"),
+        }
+    }
+
+    #[test]
+    fn bob_receive_without_opk_reference_does_not_consume_present_opk() {
+        let alice_inputs = AliceInitiateCoreInputs {
+            alice_public: sample_alice_public(),
+            bob_public: sample_bob_public_without_opk(),
+            dh_inputs: AliceDhInputs {
+                dh1: dh(0x10),
+                dh2: dh(0x20),
+                dh3: dh(0x30),
+                dh4: None,
+            },
+            signed_prekey_is_valid: true,
+            nonce: Nonce([1u8; 12]),
+            ciphertext: Ciphertext(vec![9]),
+            info: None,
+        };
+
+        let alice_result = alice_initiate_core(&alice_inputs).unwrap();
+        let ready_local = sample_bob_state_with_opk();
+        let ready_state = BobProtocolState::Ready {
+            local_state: ready_local.clone(),
+        };
+        let bob_inputs = BobReceiveCoreInputs {
+            bob_state: ready_local.clone(),
+            alice_message: alice_result.initial_message,
+            dh_inputs: BobDhInputs {
+                dh1: dh(0x10),
+                dh2: dh(0x20),
+                dh3: dh(0x30),
+                dh4: None,
+            },
+            plaintext: Plaintext(b"ok".to_vec()),
+            info: None,
+        };
+
+        let next = prop_bob_receive_does_not_consume_opk_when_unreferenced(
+            ready_state,
+            &bob_inputs,
+        )
+        .unwrap();
+
+        match next {
+            BobProtocolState::ReceivedInitial { local_state, .. } => {
+                assert_eq!(local_state.one_time_prekey, ready_local.one_time_prekey);
+            }
+            _ => panic!("expected ReceivedInitial"),
+        }
+    }
+
+    #[test]
+    fn bob_receive_consumes_opk_at_most_once() {
+        let alice_inputs = AliceInitiateCoreInputs {
+            alice_public: sample_alice_public(),
+            bob_public: sample_bob_public_with_opk(),
+            dh_inputs: AliceDhInputs {
+                dh1: dh(0x10),
+                dh2: dh(0x20),
+                dh3: dh(0x30),
+                dh4: Some(dh(0x40)),
+            },
+            signed_prekey_is_valid: true,
+            nonce: Nonce([2u8; 12]),
+            ciphertext: Ciphertext(vec![9]),
+            info: None,
+        };
+
+        let alice_result = alice_initiate_core(&alice_inputs).unwrap();
+        let bob_inputs = BobReceiveCoreInputs {
+            bob_state: sample_bob_state_with_opk(),
+            alice_message: alice_result.initial_message,
+            dh_inputs: BobDhInputs {
+                dh1: dh(0x10),
+                dh2: dh(0x20),
+                dh3: dh(0x30),
+                dh4: Some(dh(0x40)),
+            },
+            plaintext: Plaintext(b"ok".to_vec()),
+            info: None,
+        };
+
+        assert!(prop_bob_receive_consumes_opk_at_most_once(&bob_inputs).unwrap());
+    }
+
+    #[test]
+    fn bob_establish_does_not_restore_consumed_opk() {
+        let alice_inputs = AliceInitiateCoreInputs {
+            alice_public: sample_alice_public(),
+            bob_public: sample_bob_public_with_opk(),
+            dh_inputs: AliceDhInputs {
+                dh1: dh(0x10),
+                dh2: dh(0x20),
+                dh3: dh(0x30),
+                dh4: Some(dh(0x40)),
+            },
+            signed_prekey_is_valid: true,
+            nonce: Nonce([2u8; 12]),
+            ciphertext: Ciphertext(vec![9]),
+            info: None,
+        };
+
+        let alice_result = alice_initiate_core(&alice_inputs).unwrap();
+        let bob_inputs = BobReceiveCoreInputs {
+            bob_state: sample_bob_state_with_opk(),
+            alice_message: alice_result.initial_message,
+            dh_inputs: BobDhInputs {
+                dh1: dh(0x10),
+                dh2: dh(0x20),
+                dh3: dh(0x30),
+                dh4: Some(dh(0x40)),
+            },
+            plaintext: Plaintext(b"ok".to_vec()),
+            info: None,
+        };
+
+        assert!(prop_bob_establish_does_not_restore_opk(&bob_inputs).unwrap());
     }
 }

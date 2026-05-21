@@ -143,25 +143,12 @@ pub fn is_valid_km_len(km: &[u8]) -> bool {
     result.len() == expected_km_len(inputs.dh4.is_some())
 )]
 pub fn assemble_km_from_ordered_inputs(inputs: &OrderedDhInputs) -> KeyMaterial {
-    
-    /// let mut km = Vec::with_capacity(expected_km_len(inputs.dh4.is_some()));
-    ///
-    /// append_dh_output(&mut km, inputs.dh1);
-    /// append_dh_output(&mut km, inputs.dh2);
-    /// append_dh_output(&mut km, inputs.dh3);
-
-    /// if let Some(dh4) = inputs.dh4 {
-    ///    append_dh_output(&mut km, dh4);
-    /// }
-
-    /// KeyMaterial(km)
+    // Earlier versions built a Vec transcript incrementally. The current model
+    // writes directly into fixed-size arrays so KM length stays explicit.
     match inputs.dh4 {
         None => {
             let mut km = [0u8; KM_LEN_WITHOUT_OPK];
 
-            /// copy_dh(&mut km, 0, inputs.dh1);
-            /// copy_dh(&mut km, X25519_KEY_LEN, inputs.dh2);
-            /// copy_dh(&mut km, 2 * X25519_KEY_LEN, inputs.dh3);
             km[0..X25519_KEY_LEN].copy_from_slice(&inputs.dh1.0);
             km[X25519_KEY_LEN..2 * X25519_KEY_LEN].copy_from_slice(&inputs.dh2.0);
             km[2 * X25519_KEY_LEN..3 * X25519_KEY_LEN].copy_from_slice(&inputs.dh3.0);
@@ -171,13 +158,9 @@ pub fn assemble_km_from_ordered_inputs(inputs: &OrderedDhInputs) -> KeyMaterial 
         Some(dh4) => {
             let mut km = [0u8; KM_LEN_WITH_OPK];
 
-            /// copy_dh(&mut km, 0, inputs.dh1);
-            /// copy_dh(&mut km, X25519_KEY_LEN, inputs.dh2);
-            /// copy_dh(&mut km, 2 * X25519_KEY_LEN, inputs.dh3);
             km[0..X25519_KEY_LEN].copy_from_slice(&inputs.dh1.0);
             km[X25519_KEY_LEN..2 * X25519_KEY_LEN].copy_from_slice(&inputs.dh2.0);
             km[2 * X25519_KEY_LEN..3 * X25519_KEY_LEN].copy_from_slice(&inputs.dh3.0);
-            /// copy_dh(&mut km, 3 * X25519_KEY_LEN, dh4);
             km[3 * X25519_KEY_LEN..4 * X25519_KEY_LEN].copy_from_slice(&dh4.0);
 
             KeyMaterial::WithOpk(km)

@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 description = "Verification-friendly Rust model of the X3DH handshake core for hax/F* extraction"
 readme = "README.md"
-repository = "https://github.com/abhoy/HyVer"
+repository = "https://github.com/abhoy/verified-x3dh"
 license-file = "LICENSE"
 
 [dependencies]
