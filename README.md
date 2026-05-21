@@ -39,7 +39,7 @@ cd verified_x3dh
 ./install_x3dh_verification.sh run all verify-all
 ```
 
-For installation details, environment variables, and verification modes, see [INSTALL.md](/home/abhoy/DFKI_CPS/easeprofit/HyVer/verified_x3dh/INSTALL.md:1).
+For installation details, environment variables, and verification modes, see [INSTALL.md](INSTALL.md).
 
 ## Module Map
 
